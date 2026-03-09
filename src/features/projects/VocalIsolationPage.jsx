@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { startSeparateJob, getSeparateProgressURL, getSeparateResult, getSeparateResultResponse } from '../../app/api'
+import { getSeparateApiInfo, startSeparateJob, getSeparateProgressURL, getSeparateResultResponse } from '../../app/api'
 
 const sectionStyle = {
   marginBottom: '2rem',
@@ -76,11 +76,6 @@ const progressFillStyle = {
   transition: 'width 0.15s ease-out',
 }
 
-const MODELS = [
-  { id: 'stems', name: 'Stems (vocals, drums, bass, other)' },
-  { id: 'vocals', name: 'Vocals (vocals + accompaniment)' },
-]
-
 function downloadBlob(blob, filename) {
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
@@ -111,7 +106,9 @@ async function saveResultStreaming(jobId, onProgress) {
 }
 
 export default function VocalIsolationPage() {
-  const [selectedModel, setSelectedModel] = useState('stems')
+  const [models, setModels] = useState([])
+  const [modelsError, setModelsError] = useState(null)
+  const [selectedModel, setSelectedModel] = useState('')
   const [file, setFile] = useState(null)
   const [uploadHover, setUploadHover] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -122,6 +119,22 @@ export default function VocalIsolationPage() {
   const [downloadProgress, setDownloadProgress] = useState(null)
   const [dots, setDots] = useState(0)
   const eventSourceRef = useRef(null)
+
+  useEffect(() => {
+    getSeparateApiInfo()
+      .then((data) => {
+        const list = Array.isArray(data.models)
+          ? data.models
+          : Object.entries(data.models || {}).map(([id, desc]) => ({
+              id,
+              name: typeof desc === 'string' ? desc : id,
+              description: typeof desc === 'string' ? desc : '',
+            }))
+        setModels(list)
+        if (list.length) setSelectedModel(list[0].id)
+      })
+      .catch((err) => setModelsError(err.message))
+  }, [])
 
   useEffect(() => {
     if (phase !== 'downloading' && downloadProgress == null) return
@@ -215,6 +228,8 @@ export default function VocalIsolationPage() {
     }
   }
 
+  const selectedModelInfo = models.find((m) => m.id === selectedModel)
+
   return (
     <section>
       <h1>Vocal Isolation</h1>
@@ -227,6 +242,12 @@ export default function VocalIsolationPage() {
         </p>
       </div>
 
+      {modelsError && (
+        <p style={{ color: 'var(--color-dark)', marginBottom: '1rem' }}>
+          Could not load models: {modelsError}
+        </p>
+      )}
+
       <div style={sectionStyle}>
         <label htmlFor="model-select" style={labelStyle}>
           Model
@@ -236,14 +257,19 @@ export default function VocalIsolationPage() {
           value={selectedModel}
           onChange={(e) => setSelectedModel(e.target.value)}
           style={selectStyle}
-          disabled={processing}
+          disabled={processing || !models.length}
         >
-          {MODELS.map((m) => (
+          {models.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
             </option>
           ))}
         </select>
+        {selectedModelInfo?.description && (
+          <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem', color: 'var(--color-lighter)' }}>
+            {selectedModelInfo.description}
+          </p>
+        )}
       </div>
 
       <div style={sectionStyle}>
@@ -300,9 +326,9 @@ export default function VocalIsolationPage() {
 
       <button
         type="button"
-        style={processing || !file ? buttonDisabledStyle : buttonStyle}
+        style={processing || !file || !selectedModel ? buttonDisabledStyle : buttonStyle}
         onClick={handleProcess}
-        disabled={processing || !file}
+        disabled={processing || !file || !selectedModel}
       >
         {processing ? 'Processing…' : 'Separate & download'}
       </button>
