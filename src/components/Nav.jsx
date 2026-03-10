@@ -21,7 +21,6 @@ const activeStyle = {
 }
 
 const projectLinks = [
-  { to: '/projects', label: 'All projects' },
   { to: '/projects/vocal-isolation', label: 'Vocal Isolation' },
 ]
 
