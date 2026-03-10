@@ -84,6 +84,14 @@ export function getSeparateProgressURL(jobId) {
 }
 
 /**
+ * Direct download URL for the result ZIP.
+ * Prefer navigating/clicking this URL to get native browser download UI.
+ */
+export function getSeparateResultURL(jobId) {
+  return `${separateApiURL.replace(/\/$/, '')}/separate/result/${encodeURIComponent(jobId)}`
+}
+
+/**
  * Fetch the result ZIP when the job is done. Returns { blob, filename }. 202 = still processing.
  */
 export async function getSeparateResult(jobId) {

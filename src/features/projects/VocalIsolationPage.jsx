@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { getSeparateApiInfo, startSeparateJob, getSeparateProgressURL, getSeparateResultResponse } from '../../app/api'
+import { useDispatch, useSelector } from 'react-redux'
+import { getSeparateApiInfo, startSeparateJob, getSeparateProgressURL, getSeparateResultURL } from '../../app/api'
+import {
+  setJobStarted,
+  setProgress,
+  setPhase,
+  setDownloadProgress,
+  setError,
+  clearError,
+  reset,
+} from './vocalIsolationSlice'
 
 const sectionStyle = {
   marginBottom: '2rem',
@@ -76,47 +86,28 @@ const progressFillStyle = {
   transition: 'width 0.15s ease-out',
 }
 
-function downloadBlob(blob, filename) {
+function startBrowserDownload(url) {
+  // Use a direct navigation/click so the browser shows native download UI.
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = filename
+  a.href = url
+  a.download = ''
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(a.href)
-}
-
-/**
- * Stream the result to a user-chosen file (File System Access API) or fall back to blob download.
- */
-async function saveResultStreaming(jobId, onProgress) {
-  const { response, filename } = await getSeparateResultResponse(jobId)
-  if (typeof window.showSaveFilePicker === 'function') {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: filename,
-      types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }],
-    })
-    const writable = await handle.createWritable()
-    await response.body.pipeTo(writable)
-    if (onProgress) onProgress(100)
-    return
-  }
-  if (onProgress) onProgress(-1)
-  const blob = await response.blob()
-  if (onProgress) onProgress(100)
-  downloadBlob(blob, filename)
+  document.body.removeChild(a)
 }
 
 export default function VocalIsolationPage() {
+  const dispatch = useDispatch()
+  const { jobId, phase, progress: processingProgress, message: processingMessage, error, downloadProgress } =
+    useSelector((state) => state.vocalIsolation)
+  const processing = phase !== 'idle'
+
   const [models, setModels] = useState([])
   const [modelsError, setModelsError] = useState(null)
   const [selectedModel, setSelectedModel] = useState('')
   const [file, setFile] = useState(null)
   const [uploadHover, setUploadHover] = useState(false)
-  const [processing, setProcessing] = useState(false)
-  const [error, setError] = useState(null)
-  const [phase, setPhase] = useState('idle') // 'idle' | 'processing' | 'downloading'
-  const [processingProgress, setProcessingProgress] = useState(0)
-  const [processingMessage, setProcessingMessage] = useState('')
-  const [downloadProgress, setDownloadProgress] = useState(null)
   const [dots, setDots] = useState(0)
   const eventSourceRef = useRef(null)
 
@@ -153,11 +144,68 @@ export default function VocalIsolationPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [processing])
 
+  // Subscribe to progress (when starting a job or when returning to the page with an active job)
+  useEffect(() => {
+    if (!jobId || phase !== 'processing') return
+    const url = getSeparateProgressURL(jobId)
+    const es = new EventSource(url)
+    eventSourceRef.current = es
+
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.error) {
+          es.close()
+          dispatch(setError('Processing failed. Please try again.'))
+          return
+        }
+        if (data.progress != null || data.message != null) {
+          dispatch(setProgress({ progress: data.progress, message: data.message }))
+        }
+        if (data.done || data.progress >= 100) {
+          es.close()
+          eventSourceRef.current = null
+          dispatch(setPhase('downloading'))
+        }
+      } catch (_) {}
+    }
+    es.onerror = () => {
+      es.close()
+      eventSourceRef.current = null
+      dispatch(setError('Progress connection failed'))
+    }
+
+    return () => {
+      es.close()
+      eventSourceRef.current = null
+    }
+  }, [jobId, phase, dispatch])
+
+  // When phase is downloading, run the download (initial or after returning to the page)
+  useEffect(() => {
+    if (phase !== 'downloading' || !jobId) return
+    let cancelled = false
+    dispatch(setDownloadProgress(-1))
+    try {
+      const url = getSeparateResultURL(jobId)
+      startBrowserDownload(url)
+      // We can't know download completion; reset the UI after the browser receives the request.
+      setTimeout(() => {
+        if (!cancelled) dispatch(reset())
+      }, 750)
+    } catch {
+      if (!cancelled) dispatch(setError('Download failed. Please try again.'))
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [phase, jobId, dispatch])
+
   const handleFileChange = (e) => {
     const chosen = e.target.files?.[0]
     if (chosen) {
       setFile(chosen)
-      setError(null)
+      dispatch(clearError())
     }
   }
 
@@ -167,7 +215,7 @@ export default function VocalIsolationPage() {
     const dropped = e.dataTransfer.files?.[0]
     if (dropped && dropped.type.startsWith('audio/')) {
       setFile(dropped)
-      setError(null)
+      dispatch(clearError())
     }
   }
 
@@ -180,62 +228,12 @@ export default function VocalIsolationPage() {
 
   const handleProcess = async () => {
     if (!file) return
-    setProcessing(true)
-    setError(null)
-    setProcessingProgress(0)
-    setProcessingMessage('')
-    setDownloadProgress(null)
-    setPhase('processing')
     try {
       const { job_id } = await startSeparateJob(file, selectedModel)
-      setProcessingMessage('Separating...')
-
-      await new Promise((resolve, reject) => {
-        const url = getSeparateProgressURL(job_id)
-        const es = new EventSource(url)
-        eventSourceRef.current = es
-
-        es.onmessage = (e) => {
-          try {
-            const data = JSON.parse(e.data)
-            if (data.error) {
-              es.close()
-              reject(new Error(data.error))
-              return
-            }
-            if (data.progress != null) setProcessingProgress(data.progress)
-            if (data.message) setProcessingMessage(data.message)
-            if (data.done || data.progress >= 100) {
-              es.close()
-              eventSourceRef.current = null
-              resolve()
-            }
-          } catch (_) {}
-        }
-        es.onerror = () => {
-          es.close()
-          eventSourceRef.current = null
-          reject(new Error('Progress connection failed'))
-        }
-      })
-
-      setPhase('downloading')
-      setDownloadProgress(-1)
-      await saveResultStreaming(job_id, (p) => setDownloadProgress(p))
-      setDownloadProgress(100)
+      dispatch(setJobStarted(job_id))
     } catch (err) {
       if (err.name === 'AbortError') return
-      setError('Processing failed. Please try again.')
-    } finally {
-      setProcessing(false)
-      setPhase('idle')
-      setProcessingProgress(0)
-      setProcessingMessage('')
-      setDownloadProgress(null)
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close()
-        eventSourceRef.current = null
-      }
+      dispatch(setError('Processing failed. Please try again.'))
     }
   }
 
