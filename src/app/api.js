@@ -33,7 +33,7 @@ export async function getProjects() {
 }
 
 export async function getSeparateApiInfo() {
-  const url = `${separateApiURL.replace(/\/$/, '')}/`
+  const url = `${separateApiURL.replace(/\/$/, '')}/separate/info`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
