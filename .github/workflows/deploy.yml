@@ -37,6 +37,16 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Test SSH connection
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          echo "Testing SSH to $EC2_USER@$EC2_HOST..."
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 $EC2_USER@$EC2_HOST "echo 'SSH OK'"
+
       - name: Deploy to EC2
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
@@ -47,7 +57,8 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          ssh -o StrictHostKeyChecking=accept-new $EC2_USER@$EC2_HOST "ECR_REGISTRY='$ECR_REGISTRY' ECR_REPOSITORY='$ECR_REPOSITORY' AWS_REGION='$AWS_REGION' bash -x -c '
+          echo "Logging into ECR on EC2 and pulling image..."
+          ssh -o StrictHostKeyChecking=accept-new -v $EC2_USER@$EC2_HOST "ECR_REGISTRY='$ECR_REGISTRY' ECR_REPOSITORY='$ECR_REPOSITORY' AWS_REGION='$AWS_REGION' bash -x -c '
             aws ecr get-login-password --region \"\$AWS_REGION\" | docker login --username AWS --password-stdin \"\$ECR_REGISTRY\"
             docker pull \"\$ECR_REGISTRY/\$ECR_REPOSITORY:latest\"
             docker stop cap-frontend 2>/dev/null || true
