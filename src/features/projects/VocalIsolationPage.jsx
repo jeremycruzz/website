@@ -214,7 +214,7 @@ export default function VocalIsolationPage() {
       setDownloadProgress(100)
     } catch (err) {
       if (err.name === 'AbortError') return
-      setError(err.message || 'Processing failed')
+      setError('Processing failed. Please try again.')
     } finally {
       setProcessing(false)
       setPhase('idle')
