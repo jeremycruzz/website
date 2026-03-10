@@ -15,7 +15,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - uses: aws-actions/amazon-ecr-login@v2
 
@@ -25,8 +25,8 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
           docker build \
-            --build-arg VITE_API_URL="${{ vars.VITE_API_URL || 'https://api.example.com' }}" \
-            --build-arg VITE_SEPARATE_API_URL="${{ vars.VITE_SEPARATE_API_URL || 'https://separate.example.com' }}" \
+            --build-arg VITE_API_URL="${{ vars.VITE_API_URL }}" \
+            --build-arg VITE_SEPARATE_API_URL="${{ vars.VITE_SEPARATE_API_URL }}" \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             .
@@ -41,7 +41,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
           EC2_HOST: ${{ vars.EC2_HOST }}
           EC2_USER: ${{ vars.EC2_USER }}
         run: |
