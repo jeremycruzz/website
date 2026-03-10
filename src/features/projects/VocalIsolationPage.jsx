@@ -142,6 +142,17 @@ export default function VocalIsolationPage() {
     return () => clearInterval(id)
   }, [phase, downloadProgress])
 
+  // Confirm before leaving (tab close, refresh) while processing or downloading
+  useEffect(() => {
+    if (!processing) return
+    const handleBeforeUnload = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [processing])
+
   const handleFileChange = (e) => {
     const chosen = e.target.files?.[0]
     if (chosen) {
