@@ -68,7 +68,7 @@ const buttonDisabledStyle = {
 }
 
 const progressWrapStyle = {
-  marginTop: '1rem',
+  marginTop: '1.75rem',
   marginBottom: '1rem',
 }
 
