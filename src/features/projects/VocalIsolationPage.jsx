@@ -189,15 +189,17 @@ export default function VocalIsolationPage() {
     try {
       const url = getSeparateResultURL(jobId)
       startBrowserDownload(url)
-      // We can't know download completion; reset the UI after the browser receives the request.
-      setTimeout(() => {
+      dispatch(setDownloadProgress(100))
+      const t = setTimeout(() => {
         if (!cancelled) dispatch(reset())
-      }, 750)
+      }, 1500)
+      return () => {
+        cancelled = true
+        clearTimeout(t)
+      }
     } catch {
       if (!cancelled) dispatch(setError('Download failed. Please try again.'))
-    }
-    return () => {
-      cancelled = true
+      return () => { cancelled = true }
     }
   }, [phase, jobId, dispatch])
 
@@ -281,7 +283,7 @@ export default function VocalIsolationPage() {
         )}
       </div>
 
-      <div style={sectionStyle}>
+      <div style={{ ...sectionStyle, marginBottom: '2.5rem' }}>
         <span style={labelStyle}>Upload audio</span>
         <label
           style={uploadHover ? uploadZoneHoverStyle : uploadZoneStyle}
@@ -328,14 +330,19 @@ export default function VocalIsolationPage() {
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'var(--color-lighter)' }}>
             {phase === 'processing'
               ? `${processingMessage || 'Processing'}${'.'.repeat(dots)}`
-              : `Downloading${'.'.repeat(dots)}${downloadProgress >= 0 ? ` ${downloadProgress}%` : ''}`}
+              : downloadProgress === 100
+                ? 'Done!'
+                : `Downloading${'.'.repeat(dots)}${downloadProgress >= 0 ? ` ${downloadProgress}%` : ''}`}
           </p>
         </div>
       )}
 
       <button
         type="button"
-        style={processing || !file || !selectedModel ? buttonDisabledStyle : buttonStyle}
+        style={{
+          ...(processing || !file || !selectedModel ? buttonDisabledStyle : buttonStyle),
+          marginTop: '1.5rem',
+        }}
         onClick={handleProcess}
         disabled={processing || !file || !selectedModel}
       >
