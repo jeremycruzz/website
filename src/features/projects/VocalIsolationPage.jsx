@@ -265,7 +265,7 @@ export default function VocalIsolationPage() {
           Higher SDR means the isolated vocal (or instrument) is closer to the true source and has less bleed from the rest of the mix.
         </p>
         <p style={{ color: 'var(--color-dark)', margin: '0.5rem 0 0' }}>
-          <strong>What to expect:</strong> Quality depends on the mix—clean, well-balanced recordings with clear vocals tend to separate best.
+          <strong>What to expect:</strong> Quality depends on the mix: clean, well-balanced recordings with clear vocals tend to separate best.
           Dense or heavily processed material may show more artifacts. Processing time will be around 5-10 minutes.
         </p>
       </div>
