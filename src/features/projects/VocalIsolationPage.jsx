@@ -251,6 +251,23 @@ export default function VocalIsolationPage() {
           Separate stems from mixed audio. Choose a model, upload a file (WAV, MP3, FLAC, OGG, or M4A),
           and download a ZIP of the separated tracks.
         </p>
+        <p style={{ marginTop: '0.75rem', marginBottom: 0 }}>
+          <a href="/vocal_isolation.pdf" target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent)', fontSize: '0.9375rem' }}>
+            Technical details (PDF)
+          </a>
+        </p>
+      </div>
+
+      <div style={sectionStyle}>
+        <h2 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>About the models</h2>
+        <p style={{ color: 'var(--color-dark)', margin: 0 }}>
+          Models are compared using <strong>SDR</strong> (Source-to-Distortion Ratio): a standard metric for source separation.
+          Higher SDR means the isolated vocal (or instrument) is closer to the true source and has less bleed from the rest of the mix.
+        </p>
+        <p style={{ color: 'var(--color-dark)', margin: '0.5rem 0 0' }}>
+          <strong>What to expect:</strong> Quality depends on the mix—clean, well-balanced recordings with clear vocals tend to separate best.
+          Dense or heavily processed material may show more artifacts. Processing time will be around 5-10 minutes.
+        </p>
       </div>
 
       {modelsError && (
